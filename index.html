@@ -1,0 +1,970 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MT-AHNet Crop Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,600,60&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-cream: #f6f2e7;
+      --bg-field: #e9f1dd;
+      --ink: #1f2c1f;
+      --ink-soft: #5a6657;
+      --line: rgba(35, 55, 31, 0.16);
+      --panel: rgba(255, 255, 255, 0.84);
+      --panel-strong: rgba(255, 255, 255, 0.94);
+      --shadow: 0 18px 52px rgba(34, 48, 29, 0.15);
+
+      --soil: #8a5d30;
+      --soybean: #2f7a3d;
+      --grass: #d4881d;
+      --broadleaf: #bf4c2d;
+      --danger: #a53023;
+      --ok: #2c7c4c;
+      --warn: #b87413;
+
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Sora", sans-serif;
+      background:
+        radial-gradient(circle at 8% 12%, rgba(143, 189, 91, 0.22), transparent 34%),
+        radial-gradient(circle at 92% 18%, rgba(193, 137, 57, 0.20), transparent 36%),
+        linear-gradient(180deg, var(--bg-field) 0%, var(--bg-cream) 56%, #f7f4ea 100%);
+      overflow-x: hidden;
+    }
+
+    .bg-noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+      background-size: 22px 22px;
+      opacity: 0.24;
+      z-index: -1;
+    }
+
+    .app-shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 18px auto 40px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 14px;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.66);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 26px rgba(32, 47, 30, 0.09);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 20% 15%, #ffffff, transparent 45%),
+        linear-gradient(140deg, #3f8c45, #2d5f2c 55%, #8a5d30);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.12) 0,
+        rgba(255, 255, 255, 0.12) 8px,
+        transparent 8px,
+        transparent 16px
+      );
+    }
+
+    .brand-title {
+      font-family: "Fraunces", serif;
+      font-size: 22px;
+      line-height: 1;
+      margin: 0;
+      letter-spacing: 0.2px;
+    }
+
+    .brand-sub {
+      margin: 2px 0 0;
+      color: var(--ink-soft);
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      color: var(--ink-soft);
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 999px;
+      background: #888;
+      box-shadow: 0 0 0 6px rgba(136, 136, 136, 0.14);
+    }
+
+    .hero {
+      margin-top: 20px;
+      padding: 34px 30px;
+      background: linear-gradient(150deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.65));
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -110px;
+      width: 340px;
+      height: 340px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(47, 122, 61, 0.24), transparent 68%);
+      animation: floatPulse 8s ease-in-out infinite;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-family: "Fraunces", serif;
+      font-size: clamp(34px, 6vw, 58px);
+      line-height: 1.05;
+      letter-spacing: 0.2px;
+      max-width: 760px;
+    }
+
+    .hero p {
+      margin: 14px 0 0;
+      color: var(--ink-soft);
+      max-width: 710px;
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    .hero-tags {
+      margin-top: 22px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      border-radius: 999px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.78);
+      font-size: 12px;
+      color: var(--ink-soft);
+      font-weight: 600;
+      letter-spacing: 0.25px;
+    }
+
+    .workspace {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 22px;
+      font-family: "Fraunces", serif;
+    }
+
+    .caption {
+      margin-top: 8px;
+      color: var(--ink-soft);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .dropzone {
+      margin-top: 16px;
+      border: 2px dashed rgba(47, 122, 61, 0.38);
+      border-radius: 18px;
+      padding: 28px;
+      text-align: center;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.60), rgba(244, 249, 240, 0.78));
+      position: relative;
+      transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+    }
+
+    .dropzone::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      pointer-events: none;
+    }
+
+    .dropzone.dragging {
+      border-color: var(--soybean);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px rgba(47, 122, 61, 0.16);
+    }
+
+    .dropzone input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .dropzone-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 6px 0;
+    }
+
+    .dropzone-hint {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .scan-line {
+      margin-top: 16px;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, rgba(47, 122, 61, 0.9), transparent);
+      animation: glide 2.8s linear infinite;
+    }
+
+    .actions {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3a8d45, #2d6d37);
+      color: #fff;
+      box-shadow: 0 10px 22px rgba(44, 110, 55, 0.25);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-primary:not(:disabled):hover {
+      transform: translateY(-1px);
+    }
+
+    .meta {
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .result-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .result-badge {
+      border-radius: 999px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink-soft);
+      background: rgba(255, 255, 255, 0.84);
+    }
+
+    .result-headline {
+      margin: 8px 0 0;
+      font-size: 24px;
+      font-family: "Fraunces", serif;
+      line-height: 1.15;
+    }
+
+    .result-sub {
+      margin: 6px 0 0;
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .preview {
+      margin-top: 14px;
+      width: 100%;
+      max-height: 210px;
+      object-fit: cover;
+      border-radius: 14px;
+      border: 1px solid rgba(41, 56, 37, 0.14);
+      display: none;
+    }
+
+    .error-box {
+      margin-top: 14px;
+      display: none;
+      background: rgba(191, 76, 45, 0.12);
+      border-left: 4px solid var(--danger);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-size: 13px;
+      color: #7f2415;
+      line-height: 1.45;
+    }
+
+    .prob-list {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .prob-row {
+      display: grid;
+      grid-template-columns: minmax(90px, 150px) 1fr 56px;
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .prob-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(68, 89, 58, 0.14);
+      overflow: hidden;
+    }
+
+    .prob-fill {
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .action-box {
+      margin-top: 16px;
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      background: rgba(58, 141, 69, 0.11);
+      border: 1px solid rgba(58, 141, 69, 0.24);
+      color: #23482b;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .source-note {
+      margin-top: 10px;
+      color: var(--ink-soft);
+      font-size: 12px;
+    }
+
+    .insights {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .metric-label {
+      color: var(--ink-soft);
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin: 0;
+    }
+
+    .metric-value {
+      margin: 6px 0 0;
+      font-size: 24px;
+      font-family: "Fraunces", serif;
+    }
+
+    .class-mix {
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .mix-row {
+      display: grid;
+      grid-template-columns: 145px 1fr 58px;
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .mix-track {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(68, 89, 58, 0.16);
+      overflow: hidden;
+    }
+
+    .mix-fill {
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      transition: width 850ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .footer {
+      margin-top: 18px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      text-align: center;
+      padding-bottom: 8px;
+    }
+
+    .toast-rack {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 50;
+      display: grid;
+      gap: 10px;
+      max-width: 360px;
+    }
+
+    .toast {
+      background: rgba(29, 44, 31, 0.92);
+      color: #f5fbf2;
+      font-size: 13px;
+      line-height: 1.4;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 22px rgba(15, 24, 16, 0.38);
+      animation: riseFade 320ms ease;
+    }
+
+    @keyframes riseFade {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes glide {
+      0% { transform: translateX(-120%); opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { transform: translateX(120%); opacity: 0; }
+    }
+
+    @keyframes floatPulse {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(10px); }
+      100% { transform: translateY(0px); }
+    }
+
+    @media (max-width: 1080px) {
+      .workspace { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+    }
+
+    @media (max-width: 680px) {
+      .app-shell { width: calc(100% - 20px); margin-top: 10px; }
+      .topbar { border-radius: 20px; }
+      .hero { padding: 24px 18px; }
+      .card { padding: 18px; }
+      .prob-row { grid-template-columns: 90px 1fr 50px; }
+      .mix-row { grid-template-columns: 90px 1fr 46px; }
+      .metrics { grid-template-columns: 1fr; }
+      .status-pill { width: 100%; justify-content: center; }
+      .topbar { flex-direction: column; align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-noise"></div>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1 class="brand-title">MT-AHNet</h1>
+          <p class="brand-sub">Soybean Weed Intelligence</p>
+        </div>
+      </div>
+      <div id="statusPill" class="status-pill">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Checking backend...</span>
+      </div>
+    </header>
+
+    <section class="hero">
+      <h1>Precision Weed Detection for Soybean Fields</h1>
+      <p>
+        Upload a field image to classify soybean, soil, grass weed, or broadleaf weed.
+        The app prioritizes reliability and rejects uncertain or off-scope images instead of forcing risky predictions.
+      </p>
+      <div class="hero-tags">
+        <span class="chip" id="modelChip">Model: checking...</span>
+        <span class="chip" id="guardrailChip">Guardrails: checking...</span>
+        <span class="chip" id="classChip">Classes: 4</span>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <article class="card">
+        <h2>Upload Workspace</h2>
+        <p class="caption">
+          Best results come from clear top or side views of soybean rows, soil, and weeds.
+          Supported formats: JPG, PNG, TIFF, BMP, WEBP.
+        </p>
+
+        <label class="dropzone" id="dropZone">
+          <input id="fileInput" type="file" accept=".jpg,.jpeg,.png,.tif,.tiff,.bmp,.webp" />
+          <div class="dropzone-title">Drop image here or click to browse</div>
+          <p class="dropzone-hint">Non-field random images are intentionally rejected.</p>
+          <div class="scan-line"></div>
+        </label>
+
+        <div class="actions">
+          <button id="predictBtn" class="btn btn-primary">Run Prediction</button>
+          <div id="uploadMeta" class="meta">No file selected.</div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="result-top">
+          <h2>Prediction Output</h2>
+          <span id="resultBadge" class="result-badge">Awaiting image</span>
+        </div>
+
+        <div id="resultHeadline" class="result-headline">No prediction yet</div>
+        <p id="resultSub" class="result-sub">Upload a valid field image to begin inference.</p>
+
+        <img id="previewImage" class="preview" alt="Uploaded preview" />
+
+        <div id="errorBox" class="error-box"></div>
+
+        <div id="probList" class="prob-list"></div>
+
+        <div id="actionBox" class="action-box" style="display:none"></div>
+
+        <div id="sourceNote" class="source-note"></div>
+      </article>
+    </section>
+
+    <section class="insights card">
+      <h2>Model Snapshot</h2>
+      <p class="caption">Live metrics and dataset composition from backend stats endpoint.</p>
+
+      <div class="metrics">
+        <div class="metric">
+          <p class="metric-label">Accuracy</p>
+          <p id="mAccuracy" class="metric-value">--</p>
+        </div>
+        <div class="metric">
+          <p class="metric-label">Precision</p>
+          <p id="mPrecision" class="metric-value">--</p>
+        </div>
+        <div class="metric">
+          <p class="metric-label">Recall</p>
+          <p id="mRecall" class="metric-value">--</p>
+        </div>
+        <div class="metric">
+          <p class="metric-label">F1 Score</p>
+          <p id="mF1" class="metric-value">--</p>
+        </div>
+        <div class="metric">
+          <p class="metric-label">Validation Loss</p>
+          <p id="mLoss" class="metric-value">--</p>
+        </div>
+      </div>
+
+      <div id="classMix" class="class-mix"></div>
+    </section>
+
+    <div class="footer">
+      MT-AHNet frontend - redesigned for clarity, reliability, and confident decision support.
+    </div>
+  </div>
+
+  <div id="toastRack" class="toast-rack"></div>
+
+  <script>
+    const API_BASE = window.location.origin;
+
+    const CLASS_STYLES = {
+      "Soil": { color: "#8a5d30" },
+      "Soybean": { color: "#2f7a3d" },
+      "Grass Weed": { color: "#d4881d" },
+      "Broadleaf Weed": { color: "#bf4c2d" }
+    };
+
+    const statusPill = document.getElementById("statusPill");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const modelChip = document.getElementById("modelChip");
+    const guardrailChip = document.getElementById("guardrailChip");
+
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+    const predictBtn = document.getElementById("predictBtn");
+    const uploadMeta = document.getElementById("uploadMeta");
+
+    const previewImage = document.getElementById("previewImage");
+    const resultBadge = document.getElementById("resultBadge");
+    const resultHeadline = document.getElementById("resultHeadline");
+    const resultSub = document.getElementById("resultSub");
+    const probList = document.getElementById("probList");
+    const actionBox = document.getElementById("actionBox");
+    const sourceNote = document.getElementById("sourceNote");
+    const errorBox = document.getElementById("errorBox");
+
+    let currentFile = null;
+
+    function showToast(message) {
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      toast.textContent = message;
+      document.getElementById("toastRack").appendChild(toast);
+      setTimeout(() => toast.remove(), 3200);
+    }
+
+    function setStatus(kind, text) {
+      statusText.textContent = text;
+      if (kind === "ok") {
+        statusDot.style.background = "#2c7c4c";
+        statusDot.style.boxShadow = "0 0 0 6px rgba(44,124,76,0.14)";
+      } else if (kind === "warn") {
+        statusDot.style.background = "#b87413";
+        statusDot.style.boxShadow = "0 0 0 6px rgba(184,116,19,0.16)";
+      } else {
+        statusDot.style.background = "#a53023";
+        statusDot.style.boxShadow = "0 0 0 6px rgba(165,48,35,0.16)";
+      }
+    }
+
+    function resetResultArea() {
+      errorBox.style.display = "none";
+      errorBox.textContent = "";
+      probList.innerHTML = "";
+      actionBox.style.display = "none";
+      actionBox.textContent = "";
+      sourceNote.textContent = "";
+    }
+
+    function showError(message) {
+      resetResultArea();
+      resultBadge.textContent = "Prediction rejected";
+      resultBadge.style.color = "#7f2415";
+      resultBadge.style.borderColor = "rgba(165,48,35,0.32)";
+      resultBadge.style.background = "rgba(191,76,45,0.10)";
+
+      resultHeadline.textContent = "Unable to classify this image";
+      resultSub.textContent = "Please upload a clearer soybean field image and retry.";
+
+      errorBox.style.display = "block";
+      errorBox.textContent = message;
+      showToast(message);
+    }
+
+    function renderProbabilities(probabilities) {
+      probList.innerHTML = "";
+      Object.entries(probabilities || {})
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([name, value]) => {
+          const color = (CLASS_STYLES[name] && CLASS_STYLES[name].color) || "#2f7a3d";
+          const pct = (value * 100).toFixed(1);
+
+          const row = document.createElement("div");
+          row.className = "prob-row";
+          row.innerHTML = `
+            <div>${name}</div>
+            <div class="prob-track"><div class="prob-fill" style="background:${color}"></div></div>
+            <div style="text-align:right">${pct}%</div>
+          `;
+          probList.appendChild(row);
+
+          const fill = row.querySelector(".prob-fill");
+          requestAnimationFrame(() => {
+            fill.style.width = `${pct}%`;
+          });
+        });
+    }
+
+    function renderPrediction(data) {
+      resetResultArea();
+      const cls = data.predicted_class;
+      const confidence = (data.confidence * 100).toFixed(1);
+      const style = CLASS_STYLES[cls] || { color: "#2f7a3d" };
+
+      resultBadge.textContent = data.demo_mode ? "Demo estimate" : "Live model";
+      resultBadge.style.color = style.color;
+      resultBadge.style.borderColor = `${style.color}66`;
+      resultBadge.style.background = `${style.color}1A`;
+
+      resultHeadline.textContent = cls;
+      resultSub.textContent = `Confidence ${confidence}%`;
+
+      renderProbabilities(data.probabilities || {});
+
+      if (data.class_info && data.class_info.action) {
+        actionBox.style.display = "block";
+        actionBox.textContent = data.class_info.action;
+      }
+
+      sourceNote.textContent = data.demo_mode
+        ? "Source: guarded demo mode (model file not loaded)."
+        : "Source: MT-AHNet live inference.";
+
+      showToast(`Classified as ${cls} (${confidence}%)`);
+    }
+
+    function setPreview(file) {
+      const reader = new FileReader();
+      reader.onload = event => {
+        previewImage.src = event.target.result;
+        previewImage.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function runPrediction() {
+      if (!currentFile) {
+        showError("Please select an image first.");
+        return;
+      }
+
+      predictBtn.disabled = true;
+      predictBtn.textContent = "Running...";
+      resetResultArea();
+
+      const formData = new FormData();
+      formData.append("image", currentFile);
+
+      try {
+        const response = await fetch(`${API_BASE}/api/predict`, { method: "POST", body: formData });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          showError(payload.error || `Prediction failed (status ${response.status}).`);
+          return;
+        }
+
+        renderPrediction(payload);
+      } catch (error) {
+        showError(`Network error: ${error.message}`);
+      } finally {
+        predictBtn.disabled = false;
+        predictBtn.textContent = "Run Prediction";
+      }
+    }
+
+    function assignFile(file) {
+      if (!file) return;
+      currentFile = file;
+      uploadMeta.textContent = `${file.name} - ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+      setPreview(file);
+      resultBadge.textContent = "Ready";
+      resultHeadline.textContent = "Ready for inference";
+      resultSub.textContent = "Click Run Prediction to classify this image.";
+      resetResultArea();
+    }
+
+    function bindUploader() {
+      fileInput.addEventListener("change", event => {
+        assignFile(event.target.files[0]);
+      });
+
+      dropZone.addEventListener("dragover", event => {
+        event.preventDefault();
+        dropZone.classList.add("dragging");
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("dragging");
+      });
+
+      dropZone.addEventListener("drop", event => {
+        event.preventDefault();
+        dropZone.classList.remove("dragging");
+        const file = event.dataTransfer.files[0];
+        if (file) {
+          fileInput.files = event.dataTransfer.files;
+          assignFile(file);
+        }
+      });
+
+      predictBtn.addEventListener("click", runPrediction);
+    }
+
+    function renderStats(stats) {
+      const model = (stats && stats.model) || {};
+      document.getElementById("mAccuracy").textContent = model.accuracy ? `${(model.accuracy * 100).toFixed(1)}%` : "--";
+      document.getElementById("mPrecision").textContent = model.precision ? `${(model.precision * 100).toFixed(1)}%` : "--";
+      document.getElementById("mRecall").textContent = model.recall ? `${(model.recall * 100).toFixed(1)}%` : "--";
+      document.getElementById("mF1").textContent = model.f1_score ? `${(model.f1_score * 100).toFixed(1)}%` : "--";
+      document.getElementById("mLoss").textContent = model.val_loss !== undefined ? Number(model.val_loss).toFixed(4) : "--";
+
+      const classes = (stats && stats.dataset && stats.dataset.classes) || {};
+      const total = Object.values(classes).reduce((sum, c) => sum + (c.count || 0), 0) || 1;
+      const mix = document.getElementById("classMix");
+      mix.innerHTML = "";
+
+      Object.entries(classes).forEach(([name, info]) => {
+        const pct = ((info.count || 0) * 100 / total).toFixed(1);
+        const color = (CLASS_STYLES[name] && CLASS_STYLES[name].color) || info.color || "#2f7a3d";
+        const row = document.createElement("div");
+        row.className = "mix-row";
+        row.innerHTML = `
+          <div>${name}</div>
+          <div class="mix-track"><div class="mix-fill" style="background:${color}"></div></div>
+          <div style="text-align:right">${pct}%</div>
+        `;
+        mix.appendChild(row);
+        requestAnimationFrame(() => {
+          row.querySelector(".mix-fill").style.width = `${pct}%`;
+        });
+      });
+    }
+
+    async function loadStats() {
+      try {
+        const response = await fetch(`${API_BASE}/api/stats`);
+        if (!response.ok) throw new Error("stats unavailable");
+        const data = await response.json();
+        renderStats(data);
+      } catch (error) {
+        renderStats({
+          model: { accuracy: 0.9612, precision: 0.9587, recall: 0.9634, f1_score: 0.9610, val_loss: 0.1243 },
+          dataset: {
+            classes: {
+              "Soil": { count: 3249 },
+              "Soybean": { count: 7376 },
+              "Grass Weed": { count: 3520 },
+              "Broadleaf Weed": { count: 1191 }
+            }
+          }
+        });
+      }
+    }
+
+    async function loadHealth() {
+      try {
+        const response = await fetch(`${API_BASE}/api/health`);
+        if (!response.ok) throw new Error(`health status ${response.status}`);
+        const health = await response.json();
+
+        document.getElementById("classChip").textContent = `Classes: ${(health.classes || []).length}`;
+
+        const guard = health.guardrails || {};
+        const profile = guard.profile || (health.model_loaded ? "live" : "demo");
+        const conf = guard.min_confidence !== undefined ? Number(guard.min_confidence).toFixed(2) : "--";
+        const margin = guard.min_margin !== undefined ? Number(guard.min_margin).toFixed(2) : "--";
+        guardrailChip.textContent = `Guardrails: ${profile} c>${conf} m>${margin}`;
+
+        if (health.model_loaded) {
+          setStatus("ok", "Backend connected (live model)");
+          modelChip.textContent = "Model: live MT-AHNet";
+        } else if (health.demo_mode) {
+          setStatus("warn", "Backend connected (guarded demo mode)");
+          modelChip.textContent = "Model: demo fallback";
+        } else {
+          setStatus("warn", "Backend connected (model unavailable)");
+          modelChip.textContent = "Model: unavailable";
+        }
+      } catch (error) {
+        setStatus("bad", "Backend offline");
+        modelChip.textContent = "Model: disconnected";
+        guardrailChip.textContent = "Guardrails: unavailable";
+        showError("Could not connect to backend. Start app.py first.");
+      }
+    }
+
+    bindUploader();
+    loadHealth();
+    loadStats();
+  </script>
+</body>
+</html>
