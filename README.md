@@ -54,7 +54,7 @@ The project uses **MT-AHNet**, a hybrid deep learning architecture that combines
 * Improved accuracy using attention-based feature learning
 * Robust performance under varying lighting and field conditions
 
-*(You can update this section with exact accuracy/metrics if needed)*
+
 
 ---
 
@@ -100,7 +100,7 @@ start_app.bat
 * Agricultural field images containing crops and weeds
 * Preprocessed for segmentation tasks
 
-*(Add dataset link if available)*
+
 
 ---
 
@@ -119,14 +119,6 @@ start_app.bat
 
 ---
 
-## 👤 Author
-
-**Tejaswi**
-
-* Aspiring Data Scientist
-* Skilled in Python, ML, and Deep Learning
-
----
 
 ## ⭐ Acknowledgements
 
